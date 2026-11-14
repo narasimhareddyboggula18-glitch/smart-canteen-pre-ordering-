@@ -1,0 +1,263 @@
+[
+  {
+    "slug": "hero-feast",
+    "query": "indian food spread",
+    "alt": "A table filled with lots of different types of food",
+    "url": "https://images.unsplash.com/photo-1728910156510-77488f19b152"
+  },
+  {
+    "slug": "masala-dosa",
+    "query": "masala dosa",
+    "alt": "A crispy dosa served with potato masala, sambar, and three types of chutney",
+    "url": "https://images.unsplash.com/photo-1668236543090-82eba5ee5976"
+  },
+  {
+    "slug": "idli-sambar",
+    "query": "idli sambar",
+    "alt": "Idli and sambar with coffee, an indian meal",
+    "url": "https://images.unsplash.com/photo-1741376509166-cbd74b608f5a"
+  },
+  {
+    "slug": "poha",
+    "query": "poha",
+    "alt": "A metal plate of yellow poha with peanuts and green chilies beside lime wedges",
+    "url": "https://images.unsplash.com/photo-1789991184412-c29c9dfa2b39"
+  },
+  {
+    "slug": "aloo-paratha",
+    "query": "aloo paratha",
+    "alt": "A stuffed paratha with butter and two spoons on a partitioned serving tray",
+    "url": "https://images.unsplash.com/photo-1788538397295-41114c76044d"
+  },
+  {
+    "slug": "vada-pav",
+    "query": "vada pav",
+    "alt": "Two vada pav sandwiches on a paper plate",
+    "url": "https://images.unsplash.com/photo-1769030905851-c0e0a4fe5c51"
+  },
+  {
+    "slug": "veg-thali",
+    "query": "indian thali",
+    "alt": "Indian thali is served with side dishes",
+    "url": "https://images.unsplash.com/photo-1742281257687-092746ad6021"
+  },
+  {
+    "slug": "chicken-biryani",
+    "query": "chicken biryani",
+    "alt": "Hands serving chicken biryani with lemon and sauce on table",
+    "url": "https://images.unsplash.com/photo-1782541370275-6761522e39d1"
+  },
+  {
+    "slug": "rajma-chawal",
+    "query": "rajma chawal",
+    "alt": "A bowl of dal makhani with rice, onion salad, and flatbread on a table",
+    "url": "https://images.unsplash.com/photo-1788601988466-9f361c34c6cb"
+  },
+  {
+    "slug": "paneer-butter-masala",
+    "query": "paneer butter masala",
+    "alt": "a metal bowl filled with food next to a bowl of rice",
+    "url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7"
+  },
+  {
+    "slug": "chole-bhature",
+    "query": "chole bhature",
+    "alt": "Chole bhature — spiced chickpea curry with fried bread",
+    "url": "https://commons.wikimedia.org/wiki/File:Chole_Bhature_1.jpg",
+    "source": "Wikimedia Commons",
+    "license": "CC BY-SA 4.0",
+    "artist": "Gaurav Dhwaj Khadka"
+  },
+  {
+    "slug": "egg-curry-rice",
+    "query": "egg curry rice",
+    "alt": "Three eggs in a rich, spicy indian curry",
+    "url": "https://images.unsplash.com/photo-1764315197254-94385571df22"
+  },
+  {
+    "slug": "butter-chicken",
+    "query": "butter chicken",
+    "alt": "Creamy chicken curry with fresh mint and naan bread",
+    "url": "https://images.unsplash.com/photo-1772730065344-4cf131b39951"
+  },
+  {
+    "slug": "veg-fried-rice",
+    "query": "fried rice",
+    "alt": "A mound of fried rice with peas and carrots on a white square plate",
+    "url": "https://images.unsplash.com/photo-1603133872878-684f208fb84b"
+  },
+  {
+    "slug": "margherita-pizza",
+    "query": "margherita pizza",
+    "alt": "A sliced cheese pizza with cherry tomatoes and rosemary on a wooden board",
+    "url": "https://images.unsplash.com/photo-1513104890138-7c749659a591"
+  },
+  {
+    "slug": "veg-burger",
+    "query": "veggie burger",
+    "alt": "burger with lettuce and tomato",
+    "url": "https://images.unsplash.com/photo-1586190848861-99aa4a171e90"
+  },
+  {
+    "slug": "chicken-burger",
+    "query": "chicken burger",
+    "alt": "burger with lettuce and tomatoes",
+    "url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd"
+  },
+  {
+    "slug": "peri-peri-fries",
+    "query": "french fries",
+    "alt": "a basket of french fries sitting on top of a wooden table",
+    "url": "https://images.unsplash.com/photo-1630384060421-cb20d0e0649d"
+  },
+  {
+    "slug": "grilled-sandwich",
+    "query": "grilled sandwich",
+    "alt": "Two grilled corn sandwiches on a white plate with three small dipping sauces",
+    "url": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af"
+  },
+  {
+    "slug": "penne-alfredo",
+    "query": "alfredo pasta",
+    "alt": "pasta on plate with fork",
+    "url": "https://images.unsplash.com/photo-1546549032-9571cd6b27df"
+  },
+  {
+    "slug": "veg-momos",
+    "query": "momos",
+    "alt": "a white plate topped with dumplings next to a cup of sauce",
+    "url": "https://images.unsplash.com/photo-1694923450868-b432a8ee52aa"
+  },
+  {
+    "slug": "loaded-nachos",
+    "query": "nachos",
+    "alt": "Nachos topped with melted cheese, bacon, and chives",
+    "url": "https://images.unsplash.com/photo-1768252688649-13d169feadc0"
+  },
+  {
+    "slug": "samosa",
+    "query": "samosa",
+    "alt": "Three golden fried samosas on a wooden tray with green chili and pomegranate seeds",
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950"
+  },
+  {
+    "slug": "veg-puff",
+    "query": "puff pastry",
+    "alt": "Golden curry puffs on a plate",
+    "url": "https://commons.wikimedia.org/wiki/File:Curry_puffs_(1862141216).jpg",
+    "source": "Wikimedia Commons",
+    "license": "CC BY 2.0",
+    "artist": "Upendra Kanda"
+  },
+  {
+    "slug": "masala-maggi",
+    "query": "instant noodles",
+    "alt": "A bowl of vegetable masala Maggi noodles",
+    "url": "https://commons.wikimedia.org/wiki/File:Veg_Maggi_2.jpg",
+    "source": "Wikimedia Commons",
+    "license": "CC BY-SA 4.0",
+    "artist": "Gannu03"
+  },
+  {
+    "slug": "chicken-roll",
+    "query": "chicken wrap",
+    "alt": "Three meat and lettuce wraps stacked on a table",
+    "url": "https://images.unsplash.com/photo-1778168199427-4e839943d20f"
+  },
+  {
+    "slug": "paneer-tikka-wrap",
+    "query": "paneer wrap",
+    "alt": "A plate of paneer, naan bread, vegetables, and sauce",
+    "url": "https://images.unsplash.com/photo-1781332146569-9c5093bc2ca5"
+  },
+  {
+    "slug": "chocolate-brownie",
+    "query": "chocolate brownie",
+    "alt": "a pile of brownies sitting on top of a white plate",
+    "url": "https://images.unsplash.com/photo-1636743715220-d8f8dd900b87"
+  },
+  {
+    "slug": "vanilla-ice-cream",
+    "query": "vanilla ice cream",
+    "alt": "vanilla ice cream with sprinkles",
+    "url": "https://images.unsplash.com/photo-1560008581-09826d1de69e"
+  },
+  {
+    "slug": "gulab-jamun",
+    "query": "gulab jamun",
+    "alt": "Assortment of colorful indian sweets displayed in a shop",
+    "url": "https://images.unsplash.com/photo-1758910536889-43ce7b3199fd"
+  },
+  {
+    "slug": "choco-lava-cake",
+    "query": "chocolate lava cake",
+    "alt": "chocolate cake on white ceramic plate",
+    "url": "https://images.unsplash.com/photo-1605807646983-377bc5a76493"
+  },
+  {
+    "slug": "cold-coffee",
+    "query": "cold coffee",
+    "alt": "A tall glass of iced coffee with cream",
+    "url": "https://images.unsplash.com/photo-1778430397340-2ca8a57675b3"
+  },
+  {
+    "slug": "masala-chai",
+    "query": "masala chai",
+    "alt": "Person pouring tea into small clay cups",
+    "url": "https://images.unsplash.com/photo-1761483281417-778013dc0177"
+  },
+  {
+    "slug": "lime-soda",
+    "query": "lemon soda",
+    "alt": "a glass of lemonade on a wooden table",
+    "url": "https://images.unsplash.com/photo-1695490454828-f8df9109da43"
+  },
+  {
+    "slug": "mango-smoothie",
+    "query": "mango smoothie",
+    "alt": "a glass filled with a smoothie next to a mango",
+    "url": "https://images.unsplash.com/photo-1623065422902-30a2d299bbe4"
+  },
+  {
+    "slug": "oreo-milkshake",
+    "query": "oreo milkshake",
+    "alt": "a cup of chocolate milkshake with whipped cream on top",
+    "url": "https://images.unsplash.com/photo-1693857229816-b92cdc8be222"
+  },
+  {
+    "slug": "iced-lemon-tea",
+    "query": "iced tea",
+    "alt": "clear drinking glass with tea",
+    "url": "https://images.unsplash.com/photo-1556679343-c7306c1976bc"
+  },
+  {
+    "slug": "fruit-bowl",
+    "query": "fruit bowl",
+    "alt": "assorted fruits",
+    "url": "https://images.unsplash.com/photo-1519996529931-28324d5a630e"
+  },
+  {
+    "slug": "sprout-salad",
+    "query": "sprout salad",
+    "alt": "green salad on a black bowl",
+    "url": "https://images.unsplash.com/photo-1572449043416-55f4685c9bb7"
+  },
+  {
+    "slug": "grilled-chicken-salad",
+    "query": "chicken salad",
+    "alt": "Chicken salad with crispy wonton strips in a bowl",
+    "url": "https://images.unsplash.com/photo-1757625768432-101f24b1a9ed"
+  },
+  {
+    "slug": "dosa-combo",
+    "query": "dosa banana leaf",
+    "alt": "A crispy dosa with coconut chutney and sambar on a banana leaf plate",
+    "url": "https://images.unsplash.com/photo-1708146464361-5c5ce4f9abb6"
+  },
+  {
+    "slug": "burger-combo",
+    "query": "burger fries",
+    "alt": "burger with lettuce and tomatoes",
+    "url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd"
+  }
+]
