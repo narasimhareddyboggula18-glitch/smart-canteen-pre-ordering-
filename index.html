@@ -133,7 +133,7 @@
 
         <div class="status-card">
           <div class="status-card-top">
-            <span class="card-title">Right now at the counter</span>
+            <span class="card-title">Counter snapshot</span>
             <span class="status-pill low"><span class="live-dot"></span> Not too busy</span>
           </div>
           <div class="status-card-main">
@@ -146,7 +146,7 @@
               <div><strong>2</strong><span>orders in queue</span></div>
             </div>
           </div>
-          <p class="status-card-foot">Counter 2 · checked 2 min ago</p>
+          <p class="status-card-foot">Sample queue data for this demo · not live</p>
         </div>
       </div>
     </section>
@@ -166,15 +166,20 @@
             </button>
           </div>
           <div class="toolbar-tools">
-            <label class="veg-toggle" for="vegOnly">
-              <input type="checkbox" id="vegOnly" />
-              <span class="switch" aria-hidden="true"></span>
-              <span class="veg-text"><span class="diet-mark veg mini" aria-hidden="true"></span> Veg only</span>
+            <label class="sort-wrap diet-wrap">
+              <span class="sr-only">Filter by diet</span>
+              <select id="dietFilter">
+                <option value="all">All diets</option>
+                <option value="veg">Veg only</option>
+                <option value="nonveg">Non-veg only</option>
+              </select>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
             </label>
             <label class="sort-wrap">
               <span class="sr-only">Sort dishes</span>
               <select id="sortSelect">
                 <option value="recommended">Recommended</option>
+                <option value="popular">Most popular</option>
                 <option value="rating">Top rated</option>
                 <option value="price-asc">Price: low to high</option>
                 <option value="price-desc">Price: high to low</option>
@@ -235,8 +240,8 @@
         </div>
         <div class="how-step">
           <span class="how-num">02</span>
-          <h3>Track it live</h3>
-          <p>See when the kitchen confirms, starts cooking and packs your meal.</p>
+          <h3>Track your order</h3>
+          <p>Follow each step from kitchen confirmation to pickup. Status is simulated in this demo.</p>
         </div>
         <div class="how-step">
           <span class="how-num">03</span>
@@ -257,6 +262,7 @@
           <strong>CampusBite</strong>
           <p>Annapurna Canteen, Block C · Counter 2</p>
           <p class="footer-credit">Cash, UPI and campus card accepted at the counter.</p>
+          <p class="footer-credit">Demo app · orders and wallet are stored in this browser only.</p>
           <p class="footer-credit">Food photos: <a href="credits.html">Unsplash &amp; Wikimedia Commons</a>.</p>
         </div>
       </div>
@@ -317,6 +323,26 @@
       <div id="cartContent" hidden>
         <div class="cart-items" id="cartItems"></div>
 
+        <div class="cart-block checkout-block">
+          <div class="block-label">
+            <span>Pickup details</span>
+            <small>Required</small>
+          </div>
+          <div class="field-row">
+            <label class="field" id="nameField">
+              <span>Name for pickup</span>
+              <input id="checkoutName" type="text" name="name" autocomplete="name" maxlength="40" placeholder="Your name" aria-describedby="checkoutNameError" />
+              <small class="field-error" id="checkoutNameError" hidden>Enter a name with at least 2 letters.</small>
+            </label>
+            <label class="field" id="phoneField">
+              <span>Mobile number</span>
+              <input id="checkoutPhone" type="tel" name="phone" inputmode="numeric" autocomplete="tel" maxlength="10" placeholder="10-digit mobile" aria-describedby="checkoutPhoneError" />
+              <small class="field-error" id="checkoutPhoneError" hidden>Enter a valid 10-digit mobile number.</small>
+            </label>
+          </div>
+          <p class="hint" id="checkoutHint">We use this only to call your token at the counter. Saved in this browser.</p>
+        </div>
+
         <div class="cart-block">
           <div class="block-label">
             <span>Pickup time</span>
@@ -369,6 +395,20 @@
     </footer>
   </dialog>
 
+  <!-- Order confirmation -->
+  <dialog class="modal confirm-modal" id="confirmDialog" aria-labelledby="confirmTitle">
+    <div class="confirm-head">
+      <span class="section-kicker">One last check</span>
+      <h2 id="confirmTitle">Place this order?</h2>
+      <p>Your meal will be prepared for the pickup slot below. Payment happens at the counter.</p>
+    </div>
+    <div class="confirm-body" id="confirmBody"></div>
+    <div class="confirm-actions">
+      <button class="btn btn-soft" type="button" data-close-dialog>Keep editing</button>
+      <button class="btn btn-primary" id="confirmOrder" type="button">Confirm &amp; place order</button>
+    </div>
+  </dialog>
+
   <!-- Tracker -->
   <dialog class="modal tracker" id="trackerDialog" aria-labelledby="trackerTitle">
     <div id="trackerContent"></div>
@@ -380,7 +420,7 @@
     <header class="panel-head">
       <div>
         <h2 id="ordersTitle">Your orders</h2>
-        <p>Pickup history & live status</p>
+        <p>Saved on this device · status is simulated</p>
       </div>
       <button class="icon-btn" type="button" data-close-dialog aria-label="Close orders">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
@@ -393,8 +433,8 @@
   <dialog class="modal profile-modal" id="profileDialog" aria-labelledby="profileTitle">
     <header class="panel-head">
       <div>
-        <h2 id="profileTitle">Your profile</h2>
-        <p>CampusBite student account</p>
+        <h2 id="profileTitle">Your dashboard</h2>
+        <p>Demo account · saved on this device</p>
       </div>
       <button class="icon-btn" type="button" data-close-dialog aria-label="Close profile">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
@@ -427,12 +467,13 @@
           <label class="switch-only" aria-label="Dark mode"><input type="checkbox" id="prefDark" /><span class="switch" aria-hidden="true"></span></label>
         </div>
         <div class="pref-row">
-          <div><span>Order updates via SMS</span><small>Get a text when your meal is ready</small></div>
+          <div><span>Order updates via SMS</span><small>Demo only — no text messages are sent</small></div>
           <label class="switch-only" aria-label="SMS order updates"><input type="checkbox" id="prefSms" checked /><span class="switch" aria-hidden="true"></span></label>
         </div>
       </div>
 
-      <p class="profile-foot">Member since Aug 2024 · 42 meals saved from the queue</p>
+      <p class="profile-note"><strong>This is a demo dashboard.</strong> Wallet balance, points and order history live in this browser only. There is no connected canteen server or live account.</p>
+      <p class="profile-foot">Sample student profile · Riya Sharma · ID 22CS1042</p>
     </div>
   </dialog>
 

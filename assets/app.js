@@ -664,7 +664,15 @@ const state = {
   category: "all",
   search: "",
   sort: "recommended",
-  vegOnly: store.get("cb_veg", false) === true,
+  diet: (() => {
+    const saved = store.get("cb_diet", null);
+    if (saved === "veg" || saved === "nonveg") return saved;
+    if (store.get("cb_veg", false) === true) return "veg";
+    return "all";
+  })(),
+  name: String(store.get("cb_name", "") || "").slice(0, 40),
+  phone: String(store.get("cb_phone", "") || "").replace(/\D/g, "").slice(0, 10),
+  pendingDetails: null,
   cart: sanitizeCart(store.get("cb_cart", {})),
   favs: new Set(Array.isArray(store.get("cb_favs", [])) ? store.get("cb_favs", []) : []),
   wallet: clampMoney(store.get("cb_wallet", 250), 250),
@@ -706,6 +714,11 @@ function sanitizeCart(raw) {
 
 function money(n) {
   return "₹" + Math.round(n).toLocaleString("en-IN");
+}
+
+function escapeHtml(value) {
+  const chars = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  return String(value).replace(/[&<>"']/g, (char) => chars[char]);
 }
 
 function cartEntries() {
@@ -775,7 +788,7 @@ const els = {
 
   searchInput: $("#searchInput"),
   searchClear: $("#searchClear"),
-  vegOnly: $("#vegOnly"),
+  dietFilter: $("#dietFilter"),
   sortSelect: $("#sortSelect"),
   categoryChips: $("#categoryChips"),
   resultCount: $("#resultCount"),
@@ -798,6 +811,15 @@ const els = {
   cartItems: $("#cartItems"),
   cartFoot: $("#cartFoot"),
   cartBrowse: $("#cartBrowse"),
+  checkoutName: $("#checkoutName"),
+  checkoutPhone: $("#checkoutPhone"),
+  nameField: $("#nameField"),
+  phoneField: $("#phoneField"),
+  checkoutNameError: $("#checkoutNameError"),
+  checkoutPhoneError: $("#checkoutPhoneError"),
+  confirmDialog: $("#confirmDialog"),
+  confirmBody: $("#confirmBody"),
+  confirmOrder: $("#confirmOrder"),
   slotChips: $("#slotChips"),
   slotHint: $("#slotHint"),
   couponInput: $("#couponInput"),
@@ -859,7 +881,8 @@ function matchesSearch(item) {
 
 function matchesFilters(item) {
   if (!matchesSearch(item)) return false;
-  if (state.vegOnly && !item.veg) return false;
+  if (state.diet === "veg" && !item.veg) return false;
+  if (state.diet === "nonveg" && item.veg) return false;
   return true;
 }
 
@@ -871,6 +894,7 @@ function filteredMenu() {
   const sorters = {
     recommended: (a, b) =>
       b.rating * 10 + b.reviews / 100 - (a.rating * 10 + a.reviews / 100),
+    popular: (a, b) => b.reviews - a.reviews,
     rating: (a, b) => b.rating - a.rating,
     "price-asc": (a, b) => a.price - b.price,
     "price-desc": (a, b) => b.price - a.price,
@@ -892,6 +916,11 @@ function renderChips() {
         <span class="chip-count">${count}</span>
       </button>`;
   }).join("");
+}
+
+function categoryLabel(id) {
+  const category = CATEGORIES.find((entry) => entry.id === id);
+  return category ? category.label : "Menu";
 }
 
 function dishCard(item, index) {
@@ -924,6 +953,8 @@ function dishCard(item, index) {
         </div>
         <p class="dish-desc">${item.desc}</p>
         <div class="dish-meta">
+          <span class="dish-cat">${categoryLabel(item.cat)}</span>
+          <span class="dot" aria-hidden="true">·</span>
           <span class="rating">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1Z"/>
@@ -951,8 +982,26 @@ function dishCard(item, index) {
     </article>`;
 }
 
+function renderMenuSkeleton() {
+  els.resultCount.textContent = "Loading menu…";
+  els.menuGrid.setAttribute("aria-busy", "true");
+  els.menuGrid.innerHTML = Array.from(
+    { length: 8 },
+    (_, index) => `
+      <article class="dish-skeleton" aria-hidden="true" style="--i:${index}">
+        <div class="sk-media"></div>
+        <div class="sk-body">
+          <span class="sk-line sk-w40"></span>
+          <span class="sk-line sk-w85"></span>
+          <span class="sk-line sk-w60"></span>
+        </div>
+      </article>`,
+  ).join("");
+}
+
 function renderMenu() {
   const list = filteredMenu();
+  els.menuGrid.removeAttribute("aria-busy");
   els.menuGrid.innerHTML = list.map((item, i) => dishCard(item, i)).join("");
   els.emptyState.hidden = list.length > 0;
   els.resultCount.textContent = `${list.length} ${list.length === 1 ? "dish" : "dishes"}`;
@@ -1012,12 +1061,13 @@ function addItem(id, qty = 1, silent = false) {
   pulseCart();
 
   if (!silent) {
-    toast(`${item.name} added to your tray`);
+    toast(`${item.name} added to your tray`, "success");
   }
 }
 
 function changeQty(id, delta) {
   const next = (state.cart[id] || 0) + delta;
+  const removed = next <= 0 && (state.cart[id] || 0) > 0;
   if (next <= 0) {
     delete state.cart[id];
   } else {
@@ -1027,6 +1077,7 @@ function changeQty(id, delta) {
   syncQuantityUI(id);
   renderCart();
   updateBadges();
+  if (removed) toast(`${itemName(id)} removed from your tray`);
 }
 
 function pulseCart() {
@@ -1172,6 +1223,89 @@ function renderBill() {
   els.walletBalance.closest("small").style.opacity = state.wallet <= 0 ? "0.5" : "1";
 }
 
+function setFieldError(field, errorEl, valid) {
+  if (!field || !errorEl) return;
+  field.classList.toggle("invalid", !valid);
+  const input = field.querySelector("input");
+  if (input) input.setAttribute("aria-invalid", String(!valid));
+  errorEl.hidden = valid;
+}
+
+function checkoutDetails({ focus = true } = {}) {
+  const name = els.checkoutName.value.trim().replace(/\s+/g, " ");
+  const phone = els.checkoutPhone.value.replace(/\D/g, "").slice(0, 10);
+  const nameOk = name.length >= 2;
+  const phoneOk = /^\d{10}$/.test(phone);
+
+  setFieldError(els.nameField, els.checkoutNameError, nameOk);
+  setFieldError(els.phoneField, els.checkoutPhoneError, phoneOk);
+
+  if (!nameOk || !phoneOk) {
+    if (focus) (nameOk ? els.checkoutPhone : els.checkoutName).focus();
+    toast("Check your pickup details before continuing", "error");
+    return null;
+  }
+
+  state.name = name;
+  state.phone = phone;
+  store.set("cb_name", name);
+  store.set("cb_phone", phone);
+  return { name, phone };
+}
+
+function syncCheckoutFields() {
+  els.checkoutName.value = state.name;
+  els.checkoutPhone.value = state.phone;
+  setFieldError(els.nameField, els.checkoutNameError, true);
+  setFieldError(els.phoneField, els.checkoutPhoneError, true);
+}
+
+function renderConfirm(bill, details) {
+  const walletNote =
+    bill.total <= 0
+      ? "Your campus wallet covers the full amount."
+      : bill.walletUsed > 0
+        ? `${money(bill.walletUsed)} will be used from your campus wallet; pay the rest at the counter.`
+        : "Pay at Counter 2 by cash, UPI or campus card.";
+
+  els.confirmBody.innerHTML = `
+    <div class="confirm-summary">
+      <div class="confirm-meta">
+        <div><span>Pickup</span><strong>${currentSlotText()}</strong></div>
+        <div><span>Name</span><strong>${escapeHtml(details.name)}</strong></div>
+        <div><span>Mobile</span><strong>${escapeHtml(details.phone)}</strong></div>
+      </div>
+      <ul class="confirm-items">
+        ${bill.entries
+          .map(
+            ({ item, qty }) => `
+              <li>
+                <span class="confirm-item-name"><img src="${itemImage(item.id, item.img)}" alt="" width="30" height="30" loading="lazy" /> ${item.name} × ${qty}</span>
+                <span>${money(item.price * qty)}</span>
+              </li>`,
+          )
+          .join("")}
+      </ul>
+      <div class="confirm-total"><span>To pay</span><strong>${money(bill.total)}</strong></div>
+      <p class="confirm-note">${walletNote} This demo saves the order in this browser only.</p>
+    </div>`;
+}
+
+function requestOrder() {
+  const bill = computeBill();
+  if (!bill.entries.length) {
+    toast("Your tray is empty — add a dish first", "error");
+    return;
+  }
+
+  const details = checkoutDetails();
+  if (!details) return;
+
+  state.pendingDetails = details;
+  renderConfirm(bill, details);
+  if (!els.confirmDialog.open) els.confirmDialog.showModal();
+}
+
 function renderCart() {
   const entries = cartEntries();
   const empty = entries.length === 0;
@@ -1215,12 +1349,14 @@ function applyCoupon() {
   const code = els.couponInput.value.trim().toUpperCase();
   if (!code) {
     showCouponHint("Enter a coupon code to unlock savings.", "error");
+    toast("Enter a coupon code first", "error");
     els.couponInput.focus();
     return;
   }
 
   if (!COUPONS[code]) {
     showCouponHint("That code isn't valid. Try CAMPUS20.", "error");
+    toast("That coupon code is not valid", "error");
     return;
   }
 
@@ -1233,7 +1369,7 @@ function applyCoupon() {
     "success",
   );
   renderBill();
-  toast("Campus coupon applied");
+  toast(`Coupon applied — you saved ${money(bill.discount)}`, "success");
 }
 
 /* ---------------- Orders ---------------- */
@@ -1257,9 +1393,13 @@ function orderStatus(order) {
 function placeOrder() {
   const bill = computeBill();
   if (!bill.entries.length) {
-    toast("Add something to your tray first");
+    toast("Add something to your tray first", "error");
     return;
   }
+
+  const details = state.pendingDetails || checkoutDetails();
+  if (!details) return;
+  state.pendingDetails = null;
 
   const now = Date.now();
   const order = {
@@ -1281,6 +1421,7 @@ function placeOrder() {
     slot: currentSlotText(),
     placedAt: now,
     coupon: state.coupon,
+    customer: { name: details.name, phone: details.phone },
   };
 
   state.orders.unshift(order);
@@ -1300,6 +1441,7 @@ function placeOrder() {
   els.applyCoupon.textContent = "Apply";
   defaultHint();
 
+  if (els.confirmDialog.open) els.confirmDialog.close();
   els.cartDialog.close();
 
   renderMenu();
@@ -1345,8 +1487,10 @@ function renderRecent() {
 }
 
 function renderOrders() {
+  const historyNote = `<p class="panel-note">Saved in this browser. Status updates are simulated locally — no kitchen server is connected.</p>`;
+
   if (!state.orders.length) {
-    els.ordersList.innerHTML = `
+    els.ordersList.innerHTML = `${historyNote}
       <div class="empty-orders">
         <div class="empty-icon" aria-hidden="true">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -1360,7 +1504,7 @@ function renderOrders() {
     return;
   }
 
-  els.ordersList.innerHTML = state.orders
+  els.ordersList.innerHTML = historyNote + state.orders
     .map((order) => {
       const status = orderStatus(order);
       const names = order.items.map((item) => item.name);
@@ -1404,7 +1548,7 @@ function renderOrders() {
 function reorder(orderId) {
   const order = state.orders.find((entry) => entry.id === orderId);
   if (!order) {
-    toast("Couldn't find that order");
+    toast("Couldn't find that order", "error");
     return;
   }
 
@@ -1421,7 +1565,7 @@ function reorder(orderId) {
 
   if (els.ordersDialog.open) els.ordersDialog.close();
   openCart();
-  toast("Previous tray added back");
+  toast("Previous tray added back", "success");
 }
 
 /* ---------------- Tracker ---------------- */
@@ -1439,17 +1583,28 @@ const STAGE_META = [
   { icon: "04", message: "Your meal is ready — head to Counter 2." },
 ];
 
+function isOrderComplete(order) {
+  return Date.now() - order.placedAt > 30 * 60 * 1000;
+}
+
 function etaTextFor(order) {
+  if (isOrderComplete(order)) return "Completed";
   const elapsed = Math.floor((Date.now() - order.placedAt) / 1000);
   const remain = Math.max(0, 45 - elapsed);
   return remain > 0 ? `Ready in 0:${String(remain).padStart(2, "0")}` : "Ready for pickup";
 }
 
 function stepMarkup(index, stage, order) {
+  const completed = isOrderComplete(order);
   const done = stage === 3 ? index <= stage : index < stage;
   const current = index === stage && stage < 3;
   const cls = `track-step${done ? " done" : ""}${current ? " current" : ""}`;
-  const desc = index === 3 ? `Show token #${order.token} at Counter 2.` : TRACK_STEPS[index].desc;
+  const desc =
+    index === 3
+      ? completed
+        ? "Order collected. Thanks for eating with us."
+        : `Show token #${order.token} at Counter 2.`
+      : TRACK_STEPS[index].desc;
   return `
     <li class="${cls}">
       <span class="ts-dot" aria-hidden="true">
@@ -1471,7 +1626,10 @@ function openTracker(order) {
   if (els.ordersDialog.open) els.ordersDialog.close();
 
   const stage = stageOf(order);
-  const meta = STAGE_META[stage];
+  const completed = isOrderComplete(order);
+  const meta = completed
+    ? { icon: "04", message: "This order is complete. Thanks for eating with us." }
+    : STAGE_META[stage];
   const walletNote =
     order.walletUsed > 0
       ? `${money(order.walletUsed)} wallet + ${money(order.total)} at pickup`
@@ -1494,7 +1652,7 @@ function openTracker(order) {
       </div>
     </div>
 
-    <p class="tracker-sub">Order <b>#${order.id}</b> · <b>${order.slot}</b> · ${dateLabel(order.placedAt)}</p>
+    <p class="tracker-sub">Order <b>#${order.id}</b> · <b>${order.slot}</b> · ${dateLabel(order.placedAt)}${order.customer ? ` · for ${escapeHtml(order.customer.name)}` : ""}</p>
 
     <ol class="track-steps" id="trackSteps">
       ${TRACK_STEPS.map((_, index) => stepMarkup(index, stage, order)).join("")}
@@ -1523,6 +1681,8 @@ function openTracker(order) {
       <div class="ts-foot">Token #${order.token} · ${order.slot} · ${walletNote}</div>
     </div>
 
+    <p class="tracker-demo">Demo tracking · status is simulated on this device. No live kitchen server is connected.</p>
+
     <div class="tracker-actions">
       <button class="btn btn-soft" type="button" data-tracker-menu>Order something else</button>
       <button class="btn btn-primary" type="button" data-close-dialog>Got it</button>
@@ -1541,6 +1701,7 @@ function updateTracker() {
   if (!order) return;
 
   const stage = stageOf(order);
+  const completed = isOrderComplete(order);
   const steps = $$(".track-step", els.trackerContent);
 
   steps.forEach((step, index) => {
@@ -1558,8 +1719,17 @@ function updateTracker() {
   if (eta) eta.textContent = etaTextFor(order);
   if (etaWrap) etaWrap.classList.toggle("ready", stage === 3);
   if (banner) banner.classList.toggle("ready", stage === 3);
-  if (status) status.textContent = STAGE_META[stage].message;
-  if (spark) spark.textContent = STAGE_META[stage].icon;
+  if (status) {
+    status.textContent = completed
+      ? "This order is complete. Thanks for eating with us."
+      : STAGE_META[stage].message;
+  }
+  if (spark) spark.textContent = completed ? "04" : STAGE_META[stage].icon;
+
+  if (completed) {
+    clearInterval(trackerTimer);
+    return;
+  }
 
   if (
     stage === 3 &&
@@ -1607,7 +1777,7 @@ function renderProfile() {
   els.profileWallet.textContent = money(state.wallet);
   els.profilePoints.textContent = state.points.toLocaleString("en-IN");
   els.profileOrders.textContent = state.orders.length;
-  els.prefVeg.checked = state.vegOnly;
+  els.prefVeg.checked = state.diet === "veg";
   els.prefDark.checked = state.theme === "dark";
 }
 
@@ -1631,17 +1801,40 @@ function closeDialogAndScroll(button) {
 }
 
 /* ---------------- Toasts ---------------- */
-function toast(message) {
+function queueToast(host, message, kind) {
   const el = document.createElement("div");
-  el.className = "toast";
+  el.className = `toast toast-${kind}`;
+  el.setAttribute("role", kind === "error" ? "alert" : "status");
   el.innerHTML = `<span class="toast-ico" aria-hidden="true"></span><span></span>`;
   el.lastElementChild.textContent = message;
-  els.toastStack.appendChild(el);
+  host.appendChild(el);
 
   setTimeout(() => {
     el.classList.add("out");
-    setTimeout(() => el.remove(), 260);
+    setTimeout(() => {
+      el.remove();
+      if (host !== els.toastStack && !host.children.length) host.remove();
+    }, 260);
   }, 2400);
+}
+
+function toast(message, kind = "info") {
+  const openDialogs = document.querySelectorAll("dialog[open]");
+  const dialog = openDialogs[openDialogs.length - 1];
+  if (dialog) {
+    els.toastStack.replaceChildren();
+    let host = Array.from(dialog.children).find((child) =>
+      child.classList.contains("dialog-toast-stack")
+    );
+    if (!host) {
+      host = document.createElement("div");
+      host.className = "dialog-toast-stack";
+      dialog.appendChild(host);
+    }
+    queueToast(host, message, kind);
+    return;
+  }
+  queueToast(els.toastStack, message, kind);
 }
 
 /* ---------------- Events ---------------- */
@@ -1700,10 +1893,12 @@ function bindEvents() {
     els.searchInput.focus();
   });
 
-  els.vegOnly.addEventListener("change", () => {
-    state.vegOnly = els.vegOnly.checked;
-    store.set("cb_veg", state.vegOnly);
-    els.prefVeg.checked = state.vegOnly;
+  els.dietFilter.addEventListener("change", () => {
+    const next = els.dietFilter.value;
+    state.diet = next === "veg" || next === "nonveg" ? next : "all";
+    store.set("cb_diet", state.diet);
+    store.set("cb_veg", state.diet === "veg");
+    els.prefVeg.checked = state.diet === "veg";
     renderMenu();
     renderChips();
   });
@@ -1724,12 +1919,13 @@ function bindEvents() {
   els.emptyReset.addEventListener("click", () => {
     state.category = "all";
     state.search = "";
-    state.vegOnly = false;
+    state.diet = "all";
     state.sort = "recommended";
     els.searchInput.value = "";
     els.searchClear.hidden = true;
-    els.vegOnly.checked = false;
+    els.dietFilter.value = "all";
     els.prefVeg.checked = false;
+    store.set("cb_diet", "all");
     store.set("cb_veg", false);
     els.sortSelect.value = "recommended";
     renderChips();
@@ -1783,14 +1979,39 @@ function bindEvents() {
     if (state.wallet <= 0) {
       els.walletToggle.checked = false;
       state.useWallet = false;
-      toast("Your campus wallet is empty");
+      toast("Your campus wallet is empty", "error");
       return;
     }
     state.useWallet = els.walletToggle.checked;
     renderBill();
   });
 
-  els.placeOrder.addEventListener("click", placeOrder);
+  els.placeOrder.addEventListener("click", requestOrder);
+  els.confirmOrder.addEventListener("click", () => {
+    if (els.confirmDialog.open) els.confirmDialog.close();
+    placeOrder();
+  });
+  els.confirmDialog.addEventListener("close", () => {
+    state.pendingDetails = null;
+  });
+
+  els.checkoutName.addEventListener("input", () => {
+    state.name = els.checkoutName.value;
+    store.set("cb_name", state.name);
+    if (els.nameField.classList.contains("invalid")) {
+      setFieldError(els.nameField, els.checkoutNameError, state.name.trim().length >= 2);
+    }
+  });
+
+  els.checkoutPhone.addEventListener("input", () => {
+    const digits = els.checkoutPhone.value.replace(/\D/g, "").slice(0, 10);
+    if (els.checkoutPhone.value !== digits) els.checkoutPhone.value = digits;
+    state.phone = digits;
+    store.set("cb_phone", digits);
+    if (els.phoneField.classList.contains("invalid")) {
+      setFieldError(els.phoneField, els.checkoutPhoneError, /^\d{10}$/.test(digits));
+    }
+  });
 
   els.cartBrowse.addEventListener("click", () => {
     els.cartDialog.close();
@@ -1827,9 +2048,10 @@ function bindEvents() {
 
   /* Profile preferences */
   els.prefVeg.addEventListener("change", () => {
-    state.vegOnly = els.prefVeg.checked;
-    els.vegOnly.checked = state.vegOnly;
-    store.set("cb_veg", state.vegOnly);
+    state.diet = els.prefVeg.checked ? "veg" : "all";
+    els.dietFilter.value = state.diet;
+    store.set("cb_diet", state.diet);
+    store.set("cb_veg", state.diet === "veg");
     renderChips();
     renderMenu();
   });
@@ -1839,7 +2061,11 @@ function bindEvents() {
   });
 
   els.prefSms.addEventListener("change", () => {
-    toast(els.prefSms.checked ? "Order updates turned on" : "Order updates turned off");
+    toast(
+      els.prefSms.checked
+        ? "Demo preference saved — no SMS will be sent"
+        : "SMS updates turned off",
+    );
   });
 
   /* Bottom navigation */
@@ -1872,9 +2098,12 @@ function bindEvents() {
   });
 
   /* Backdrop click to dismiss */
-  [els.cartDialog, els.trackerDialog, els.ordersDialog, els.profileDialog].forEach((dialog) => {
+  [els.cartDialog, els.confirmDialog, els.trackerDialog, els.ordersDialog, els.profileDialog].forEach((dialog) => {
     dialog.addEventListener("click", (event) => {
       if (event.target === dialog) dialog.close();
+    });
+    dialog.addEventListener("close", () => {
+      dialog.querySelectorAll(".dialog-toast-stack").forEach((host) => host.remove());
     });
   });
 
@@ -1909,7 +2138,9 @@ function bindEvents() {
 function init() {
   setTheme(state.theme, false);
   els.todayLabel.textContent = `${nowLabel()} · Kitchen open`;
-  els.vegOnly.checked = state.vegOnly;
+  els.dietFilter.value = state.diet;
+  els.prefVeg.checked = state.diet === "veg";
+  syncCheckoutFields();
 
   const boardDate = $("#boardDate");
   if (boardDate) boardDate.textContent = nowLabel();
@@ -1918,7 +2149,7 @@ function init() {
   if (dishCount) dishCount.textContent = String(MENU.length);
 
   renderChips();
-  renderMenu();
+  renderMenuSkeleton();
   renderCart();
   updateBadges();
   renderRecent();
@@ -1930,6 +2161,7 @@ function init() {
   els.sortSelect.value = state.sort;
 
   bindEvents();
+  setTimeout(renderMenu, 420);
 }
 
 init();
