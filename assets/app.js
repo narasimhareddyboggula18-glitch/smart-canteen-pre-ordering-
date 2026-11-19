@@ -690,6 +690,9 @@ const state = {
       : "light"),
   activeOrderId: null,
   celebratedOrders: new Set(),
+  user: null,
+  authMode: "signin",
+  dbTableAvailable: null,
 };
 
 let trackerTimer = null;
@@ -785,6 +788,32 @@ const els = {
   ordersButton: $("#ordersButton"),
   allOrdersButton: $("#allOrdersButton"),
   profileButton: $("#profileButton"),
+  authButton: $("#authButton"),
+
+  authDialog: $("#authDialog"),
+  authTitle: $("#authTitle"),
+  authSubtitle: $("#authSubtitle"),
+  tabSignIn: $("#tabSignIn"),
+  tabSignUp: $("#tabSignUp"),
+  authAlert: $("#authAlert"),
+  demoLoginBox: $("#demoLoginBox"),
+  btnFillDemo: $("#btnFillDemo"),
+  authForm: $("#authForm"),
+  authNameField: $("#authNameField"),
+  authName: $("#authName"),
+  authEmail: $("#authEmail"),
+  authPassword: $("#authPassword"),
+  authSubmitBtn: $("#authSubmitBtn"),
+  authSubmitText: $("#authSubmitText"),
+
+  profileAvatar: $("#profileAvatar"),
+  profileName: $("#profileName"),
+  profileEmail: $("#profileEmail"),
+  profileUid: $("#profileUid"),
+  profileSignOut: $("#profileSignOut"),
+
+  refreshOrdersBtn: $("#refreshOrdersBtn"),
+  ordersSubtitle: $("#ordersSubtitle"),
 
   searchInput: $("#searchInput"),
   searchClear: $("#searchClear"),
@@ -1397,6 +1426,14 @@ function placeOrder() {
     return;
   }
 
+  // Require login if configured
+  if (window.cbConfig && window.cbConfig.requireLogin && !state.user) {
+    if (els.confirmDialog && els.confirmDialog.open) els.confirmDialog.close();
+    openAuthDialog("signin");
+    toast("Please sign in with Supabase to place your order", "info");
+    return;
+  }
+
   const details = state.pendingDetails || checkoutDetails();
   if (!details) return;
   state.pendingDetails = null;
@@ -1452,6 +1489,32 @@ function placeOrder() {
   renderProfile();
 
   openTracker(order);
+
+  // Sync order to Supabase database
+  if (window.cbDb && window.cbDb.isConfigured() && state.user) {
+    window.cbDb
+      .insertOrder(order, state.user.id)
+      .then((data) => {
+        console.log("Order saved to Supabase:", data);
+        state.dbTableAvailable = true;
+        toast(`Order #${order.id} saved to Supabase!`, "success");
+
+        // Sync new wallet balance and points to user profile table
+        window.cbDb.updateProfile(state.user.id, {
+          wallet_balance: state.wallet,
+          reward_points: state.points,
+        }).catch(console.warn);
+      })
+      .catch((err) => {
+        console.warn("Supabase insertOrder:", err);
+        if (err.code === "PGRST205") {
+          state.dbTableAvailable = false;
+          toast("Order saved locally. Run schema.sql in Supabase to sync DB.", "info");
+        } else {
+          toast("Saved locally. Supabase: " + (err.message || "sync failed"), "info");
+        }
+      });
+  }
 }
 
 function renderRecent() {
@@ -1487,10 +1550,28 @@ function renderRecent() {
 }
 
 function renderOrders() {
-  const historyNote = `<p class="panel-note">Saved in this browser. Status updates are simulated locally — no kitchen server is connected.</p>`;
+  let headerNotice = "";
+  if (!state.user) {
+    headerNotice = `
+      <div class="db-banner-notice" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;">
+        <span>Sign in with Supabase to sync and query your orders from the cloud database.</span>
+        <button class="btn btn-soft btn-sm" type="button" data-orders-signin>Sign In</button>
+      </div>`;
+  } else if (state.dbTableAvailable === false) {
+    headerNotice = `
+      <div class="db-banner-notice" style="margin-bottom:14px;">
+        <b>Supabase Database Note:</b> Run <code>supabase/schema.sql</code> in your Supabase SQL editor to create the <code>public.orders</code> table. Orders below are loaded from your local device.
+      </div>`;
+  } else {
+    headerNotice = `
+      <div class="supabase-status-pill" style="margin-bottom:12px;">
+        <span class="status-indicator online"></span>
+        <span>Supabase Orders · ${escapeHtml(state.user.email)}</span>
+      </div>`;
+  }
 
   if (!state.orders.length) {
-    els.ordersList.innerHTML = `${historyNote}
+    els.ordersList.innerHTML = `${headerNotice}
       <div class="empty-orders">
         <div class="empty-icon" aria-hidden="true">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -1504,7 +1585,7 @@ function renderOrders() {
     return;
   }
 
-  els.ordersList.innerHTML = historyNote + state.orders
+  els.ordersList.innerHTML = headerNotice + state.orders
     .map((order) => {
       const status = orderStatus(order);
       const names = order.items.map((item) => item.name);
@@ -1771,6 +1852,9 @@ function openCart() {
 function openOrders() {
   renderOrders();
   if (!els.ordersDialog.open) els.ordersDialog.showModal();
+  if (state.user) {
+    loadSupabaseOrders();
+  }
 }
 
 function renderProfile() {
@@ -1779,6 +1863,27 @@ function renderProfile() {
   els.profileOrders.textContent = state.orders.length;
   els.prefVeg.checked = state.diet === "veg";
   els.prefDark.checked = state.theme === "dark";
+
+  if (state.user) {
+    const meta = state.user.user_metadata || {};
+    const displayName = meta.name || state.user.email.split("@")[0];
+    const initials =
+      displayName
+        .split(" ")
+        .map((p) => p[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase() || "ST";
+
+    if (els.profileAvatar) els.profileAvatar.textContent = initials;
+    if (els.profileButton) els.profileButton.textContent = initials;
+    if (els.profileName) els.profileName.textContent = displayName;
+    if (els.profileEmail) els.profileEmail.textContent = state.user.email;
+    const roll = state.profile?.roll_no || "22CS1042";
+    const branch = state.profile?.branch || "B.Tech CSE · Annapurna Canteen";
+    if (els.profileUid)
+      els.profileUid.textContent = `ID ${roll} · ${branch}`;
+  }
 }
 
 function openProfile() {
@@ -1798,6 +1903,280 @@ function closeDialogAndScroll(button) {
   const dialog = button.closest("dialog");
   if (dialog) dialog.close();
   setTimeout(() => scrollToMenu(), 120);
+}
+
+/* ---------------- Supabase Auth & Database Integration ---------------- */
+function openAuthDialog(mode = "signin") {
+  state.authMode = mode;
+  switchAuthTab(mode);
+  if (els.authAlert) els.authAlert.hidden = true;
+  if (els.authDialog && !els.authDialog.open) els.authDialog.showModal();
+}
+
+function switchAuthTab(mode) {
+  state.authMode = mode;
+  if (els.tabSignIn) {
+    els.tabSignIn.classList.toggle("active", mode === "signin");
+    els.tabSignIn.setAttribute("aria-selected", mode === "signin");
+  }
+  if (els.tabSignUp) {
+    els.tabSignUp.classList.toggle("active", mode === "signup");
+    els.tabSignUp.setAttribute("aria-selected", mode === "signup");
+  }
+  if (els.authNameField) {
+    els.authNameField.style.display = mode === "signup" ? "flex" : "none";
+  }
+  if (els.authTitle) {
+    els.authTitle.textContent = mode === "signin" ? "Student Portal" : "Create Account";
+  }
+  if (els.authSubtitle) {
+    els.authSubtitle.textContent =
+      mode === "signin"
+        ? "Sign in with Supabase to pre-order meals"
+        : "Register with Supabase for instant ordering";
+  }
+  if (els.authSubmitText) {
+    els.authSubmitText.textContent = mode === "signin" ? "Sign In" : "Create Account";
+  }
+  if (els.demoLoginBox) {
+    els.demoLoginBox.style.display = mode === "signin" ? "flex" : "none";
+  }
+  if (els.authAlert) els.authAlert.hidden = true;
+}
+
+function showAuthAlert(message, kind = "error") {
+  if (!els.authAlert) return;
+  els.authAlert.textContent = message;
+  els.authAlert.className = `auth-alert ${kind}`;
+  els.authAlert.hidden = false;
+}
+
+function setAuthLoading(loading) {
+  if (!els.authSubmitBtn) return;
+  els.authSubmitBtn.disabled = loading;
+  if (els.authSubmitText) {
+    els.authSubmitText.textContent = loading
+      ? state.authMode === "signin"
+        ? "Signing in..."
+        : "Creating account..."
+      : state.authMode === "signin"
+      ? "Sign In"
+      : "Create Account";
+  }
+}
+
+function fillDemoCredentials() {
+  if (els.authEmail) els.authEmail.value = "student@campusbite.com";
+  if (els.authPassword) els.authPassword.value = "CampusPassword123!";
+  if (els.authName) els.authName.value = "Riya Sharma";
+  showAuthAlert("Demo account filled! Click 'Sign In' to proceed.", "success");
+}
+
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+  const email = (els.authEmail?.value || "").trim();
+  const password = els.authPassword?.value || "";
+  const name = (els.authName?.value || "").trim();
+
+  if (!email || !password) {
+    showAuthAlert("Please enter both email and password.", "error");
+    return;
+  }
+
+  if (state.authMode === "signup" && password.length < 6) {
+    showAuthAlert("Password must be at least 6 characters.", "error");
+    return;
+  }
+
+  setAuthLoading(true);
+
+  try {
+    if (state.authMode === "signup") {
+      const { data, error } = await window.cbDb.signUp(email, password, name);
+      if (error) throw error;
+
+      if (data.user && !data.session) {
+        showAuthAlert(
+          "Account created! Check your email to confirm, or test with the verified demo account.",
+          "success"
+        );
+      } else {
+        showAuthAlert("Account created successfully! Logging in...", "success");
+        setTimeout(() => {
+          if (els.authDialog && els.authDialog.open) els.authDialog.close();
+        }, 800);
+      }
+    } else {
+      const { data, error } = await window.cbDb.signIn(email, password);
+      if (error) throw error;
+
+      showAuthAlert("Signed in successfully!", "success");
+      toast(`Welcome, ${data.user?.user_metadata?.name || data.user.email}!`, "success");
+      setTimeout(() => {
+        if (els.authDialog && els.authDialog.open) els.authDialog.close();
+      }, 500);
+    }
+  } catch (err) {
+    console.error("Auth error:", err);
+    showAuthAlert(err.message || "Authentication failed", "error");
+  } finally {
+    setAuthLoading(false);
+  }
+}
+
+async function handleSignOut() {
+  try {
+    await window.cbDb.signOut();
+    state.user = null;
+    updateAuthUI();
+    renderProfile();
+    renderOrders();
+    if (els.profileDialog && els.profileDialog.open) els.profileDialog.close();
+    toast("Signed out of Supabase successfully", "info");
+  } catch (err) {
+    console.error("Sign out error:", err);
+    toast("Sign out failed: " + err.message, "error");
+  }
+}
+
+function updateAuthUI() {
+  if (state.user) {
+    if (els.authButton) els.authButton.style.display = "none";
+    if (els.profileButton) els.profileButton.hidden = false;
+    const meta = state.user.user_metadata || {};
+    const displayName = meta.name || state.user.email.split("@")[0];
+    const initials =
+      displayName
+        .split(" ")
+        .map((p) => p[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase() || "ST";
+    if (els.profileButton) els.profileButton.textContent = initials;
+  } else {
+    if (els.authButton) els.authButton.style.display = "inline-flex";
+    if (els.profileButton) els.profileButton.hidden = true;
+  }
+}
+
+async function loadSupabaseOrders() {
+  if (!window.cbDb || !window.cbDb.isConfigured() || !state.user) return;
+  try {
+    const data = await window.cbDb.fetchOrders(state.user.id);
+    state.dbTableAvailable = true;
+    if (Array.isArray(data) && data.length) {
+      const dbMapped = data.map((row) => ({
+        id: row.order_code,
+        token: row.token,
+        items: Array.isArray(row.items) ? row.items : [],
+        subtotal: Number(row.subtotal),
+        discount: Number(row.discount),
+        gst: Number(row.gst),
+        packaging: Number(row.packaging),
+        walletUsed: Number(row.wallet_used),
+        total: Number(row.total),
+        slot: row.pickup_slot,
+        placedAt: new Date(row.placed_at).getTime(),
+        coupon: row.coupon,
+        status: row.status,
+        customer: {
+          name: row.customer_name,
+          phone: row.customer_phone,
+        },
+      }));
+      state.orders = dbMapped;
+      saveOrders();
+      renderOrders();
+      renderRecent();
+      updateHeroReorder();
+      renderProfile();
+    }
+  } catch (err) {
+    console.warn("Supabase fetchOrders error:", err);
+    if (err.code === "PGRST205") {
+      state.dbTableAvailable = false;
+      renderOrders();
+    }
+  }
+}
+
+async function loadSupabaseProfile() {
+  if (!window.cbDb || !window.cbDb.isConfigured() || !state.user) return;
+  try {
+    const profile = await window.cbDb.getProfile(state.user.id);
+    if (profile) {
+      state.profile = profile;
+      if (profile.wallet_balance !== undefined && profile.wallet_balance !== null) {
+        state.wallet = Number(profile.wallet_balance);
+        if (els.walletAmount) els.walletAmount.textContent = money(state.wallet);
+      }
+      if (profile.reward_points !== undefined && profile.reward_points !== null) {
+        state.points = Number(profile.reward_points);
+      }
+      if (profile.full_name) {
+        state.name = profile.full_name;
+        if (els.checkoutName) els.checkoutName.value = state.name;
+      }
+      if (profile.phone) {
+        state.phone = profile.phone;
+        if (els.checkoutPhone) els.checkoutPhone.value = state.phone;
+      }
+      store.set("cb_wallet", state.wallet);
+      store.set("cb_points", state.points);
+      store.set("cb_name", state.name);
+      store.set("cb_phone", state.phone);
+      saveWallet();
+      renderProfile();
+      renderBill();
+    }
+  } catch (err) {
+    console.warn("Supabase loadSupabaseProfile note:", err);
+  }
+}
+
+async function initSupabaseAuth() {
+  if (!window.cbDb || !window.cbDb.isConfigured()) {
+    console.warn("Supabase client is not configured.");
+    updateAuthUI();
+    return;
+  }
+
+  const client = window.cbDb.getClient();
+
+  try {
+    const session = await window.cbDb.getSession();
+    if (session && session.user) {
+      state.user = session.user;
+      updateAuthUI();
+      renderProfile();
+      loadSupabaseProfile();
+      loadSupabaseOrders();
+    } else {
+      updateAuthUI();
+    }
+  } catch (err) {
+    console.warn("Supabase session check:", err);
+    updateAuthUI();
+  }
+
+  if (client && client.auth) {
+    client.auth.onAuthStateChange(async (event, session) => {
+      console.log("Supabase Auth event:", event);
+      if (session && session.user) {
+        state.user = session.user;
+        updateAuthUI();
+        renderProfile();
+        loadSupabaseProfile();
+        loadSupabaseOrders();
+      } else {
+        state.user = null;
+        state.profile = null;
+        updateAuthUI();
+        renderProfile();
+        renderOrders();
+      }
+    });
+  }
 }
 
 /* ---------------- Toasts ---------------- */
@@ -1848,6 +2227,19 @@ function bindEvents() {
   els.allOrdersButton.addEventListener("click", openOrders);
   els.profileButton.addEventListener("click", openProfile);
   els.walletChip.addEventListener("click", openProfile);
+  if (els.authButton) els.authButton.addEventListener("click", () => openAuthDialog("signin"));
+
+  if (els.tabSignIn) els.tabSignIn.addEventListener("click", () => switchAuthTab("signin"));
+  if (els.tabSignUp) els.tabSignUp.addEventListener("click", () => switchAuthTab("signup"));
+  if (els.btnFillDemo) els.btnFillDemo.addEventListener("click", fillDemoCredentials);
+  if (els.authForm) els.authForm.addEventListener("submit", handleAuthSubmit);
+  if (els.profileSignOut) els.profileSignOut.addEventListener("click", handleSignOut);
+  if (els.refreshOrdersBtn) {
+    els.refreshOrdersBtn.addEventListener("click", async () => {
+      await loadSupabaseOrders();
+      toast("Orders refreshed from Supabase", "info");
+    });
+  }
 
   els.heroOrder.addEventListener("click", scrollToMenu);
   els.heroReorder.addEventListener("click", () => {
@@ -2023,8 +2415,12 @@ function bindEvents() {
     const track = event.target.closest("[data-track]");
     const again = event.target.closest("[data-reorder]");
     const menuButton = event.target.closest("[data-open-menu]");
+    const signinBtn = event.target.closest("[data-orders-signin]");
 
-    if (track) {
+    if (signinBtn) {
+      els.ordersDialog.close();
+      openAuthDialog("signin");
+    } else if (track) {
       const order = state.orders.find((entry) => entry.id === track.dataset.track);
       if (order) openTracker(order);
     } else if (again) {
@@ -2098,14 +2494,23 @@ function bindEvents() {
   });
 
   /* Backdrop click to dismiss */
-  [els.cartDialog, els.confirmDialog, els.trackerDialog, els.ordersDialog, els.profileDialog].forEach((dialog) => {
-    dialog.addEventListener("click", (event) => {
-      if (event.target === dialog) dialog.close();
+  [
+    els.cartDialog,
+    els.confirmDialog,
+    els.trackerDialog,
+    els.ordersDialog,
+    els.profileDialog,
+    els.authDialog,
+  ]
+    .filter(Boolean)
+    .forEach((dialog) => {
+      dialog.addEventListener("click", (event) => {
+        if (event.target === dialog) dialog.close();
+      });
+      dialog.addEventListener("close", () => {
+        dialog.querySelectorAll(".dialog-toast-stack").forEach((host) => host.remove());
+      });
     });
-    dialog.addEventListener("close", () => {
-      dialog.querySelectorAll(".dialog-toast-stack").forEach((host) => host.remove());
-    });
-  });
 
   /* Keyboard shortcut: "/" focuses search */
   document.addEventListener("keydown", (event) => {
@@ -2162,6 +2567,7 @@ function init() {
 
   bindEvents();
   setTimeout(renderMenu, 420);
+  initSupabaseAuth();
 }
 
 init();
